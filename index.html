@@ -1,175 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BlackWall Threat Intelligence (OSINT)</title>
-  <style>
-    /* ------------------------
-       Body & Fonts
-    ------------------------ */
-    body {
-      font-family: "Courier New", monospace;
-      background-color: #0d0d0d;
-      color: #00ff99;
-      margin: 0;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Intelligence OSINT Dashboard</title>
+<style>
+  /* Reset & body */
+  body {
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    background: #000;
+    color: #0ff;
+    overflow-x: hidden;
+  }
 
-    h1 { color: #00ffff; text-shadow: 0 0 5px #00ffff, 0 0 10px #ff00ff; }
-    h2 { cursor: pointer; margin-bottom: 10px; }
+  /* Matrix canvas */
+  canvas#matrix {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
 
-    /* ------------------------
-       Feed container & search
-    ------------------------ */
-    .container { max-width: 1200px; margin: auto; }
-    .search-box { margin-bottom: 20px; padding: 5px; width: 100%; font-size: 1em; }
-    .feed-container { margin-bottom: 40px; border: 1px solid #00ff99; padding: 10px; background: rgba(0,0,0,0.6); box-shadow: 0 0 10px #00ff99, 0 0 20px #ff00ff; }
-    .entries { display: none; margin-top: 10px; }
-    .entry-panel {
-      border: 1px solid #00ff99;
-      padding: 10px 15px;
-      margin: 5px 0;
-      background: rgba(0, 0, 0, 0.8);
-      box-shadow: 0 0 5px #00ff99, 0 0 10px #ff00ff;
-    }
-    .entry-panel:hover { transform: scale(1.01); }
+  /* Container for all content */
+  .container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 10px;
+    position: relative;
+    z-index: 1;
+  }
 
-    a { color: #00ff99; text-decoration: none; font-weight: bold; }
-    a:hover { text-decoration: underline; }
+  h1 {
+    color: #0ff;
+    text-align: center;
+    font-size: 2em;
+    text-shadow: 0 0 5px #0ff, 0 0 10px #0ff;
+  }
 
-    small { display: block; color: #66ff99; margin-top: 5px; }
-    footer { text-align: center; margin-top: 40px; color: #00ff99; }
+  /* Search box */
+  #search-box {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    font-size: 1em;
+    margin-bottom: 20px;
+    background: #111;
+    border: 1px solid #0ff;
+    color: #0ff;
+  }
 
-    /* ------------------------
-       Matrix background
-    ------------------------ */
-    canvas#matrix {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      pointer-events: none;
-    }
-  </style>
+  /* Collapsible panels */
+  .feed-panel {
+    margin-bottom: 20px;
+    border: 1px solid #0ff;
+    border-radius: 5px;
+    overflow: hidden;
+    background: rgba(0,0,0,0.7);
+    box-shadow: 0 0 10px #0ff;
+  }
+
+  .feed-header {
+    padding: 10px;
+    background: #000;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.2em;
+    text-shadow: 0 0 5px #0ff;
+  }
+
+  .feed-entries {
+    display: none;
+    padding: 10px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  .entry-card {
+    background: rgba(0,0,0,0.8);
+    border: 1px solid #0ff;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    transition: 0.3s;
+  }
+
+  .entry-card:hover {
+    box-shadow: 0 0 10px #0ff;
+    transform: scale(1.02);
+  }
+
+  .entry-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #0ff;
+    text-decoration: none;
+  }
+
+  .entry-meta {
+    font-size: 0.85em;
+    color: #0aa;
+  }
+
+  .entry-desc {
+    margin-top: 5px;
+    font-size: 0.9em;
+  }
+
+  /* Scrollbar styling */
+  .feed-entries::-webkit-scrollbar {
+    width: 8px;
+  }
+  .feed-entries::-webkit-scrollbar-thumb {
+    background: #0ff;
+    border-radius: 4px;
+  }
+</style>
 </head>
 <body>
-  <canvas id="matrix"></canvas>
-  <div class="container">
-    <h1>Threat Intelligence OSINT Dashboard</h1>
-    <input class="search-box" type="text" id="searchInput" placeholder="Search all feeds...">
-    <div id="json-list"></div>
-    <footer>Updated daily</footer>
-  </div>
 
-  <script>
-    const feeds = [
-      { name: "Bleeping Computer", file: "bleeping.json", type: "standard" },
-      { name: "The Hacker News", file: "hackernews.json", type: "standard" },
-      { name: "CISA Advisories", file: "cisa.json", type: "standard" },
-      { name: "Mandiant Reports", file: "mandiant.json", type: "standard" },
-      { name: "Ransomware Live", file: "ransomware_live.json", type: "standard" },
-      { name: "MITRE ATT&CK Actors", file: "mitre.json", type: "mitre" },
-    ];
+<canvas id="matrix"></canvas>
 
-    const list = document.getElementById("json-list");
+<div class="container">
+  <h1>Threat Intelligence OSINT Dashboard</h1>
+  <input type="text" id="search-box" placeholder="Search feeds...">
 
-    const allPanels = [];
+  <!-- Feed panels -->
+  <div id="feeds-container"></div>
+</div>
 
-    feeds.forEach(feed => {
-      fetch(feed.file)
-        .then(res => res.json())
-        .then(data => {
-          const container = document.createElement("div");
-          container.className = "feed-container";
+<script>
+/* ==== MATRIX EFFECT ==== */
+const canvas = document.getElementById('matrix');
+const ctx = canvas.getContext('2d');
 
-          const title = document.createElement("h2");
-          title.textContent = feed.name + ` (${data.length})`;
-          container.appendChild(title);
+let width = canvas.width = window.innerWidth;
+let height = canvas.height = window.innerHeight;
 
-          const entriesDiv = document.createElement("div");
-          entriesDiv.className = "entries";
+const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%'.split('');
+const fontSize = 18;
+const columns = Math.floor(width / fontSize);
+const drops = Array(columns).fill(0);
 
-          data.slice(0, 20).forEach(item => {
-            const panel = document.createElement("div");
-            panel.className = "entry-panel";
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+  ctx.fillRect(0, 0, width, height);
 
-            // Field mapping per type
-            if(feed.type === "mitre") {
-              panel.innerHTML = `
-                <a href="${item.mitre_url}" target="_blank">${item.actor_name}</a>
-                <p>${item.description}</p>
-                <small>Techniques: ${item.techniques || "N/A"} | Last Updated: ${new Date(item.last_updated).toLocaleString()}</small>
-              `;
-            } else {
-              panel.innerHTML = `
-                <a href="${item.link}" target="_blank">${item.title}</a>
-                <p>${item.summary}</p>
-                <small>${new Date(item.published).toLocaleString()}</small>
-              `;
-            }
+  ctx.fillStyle = '#0ff';
+  ctx.font = fontSize + 'px monospace';
 
-            entriesDiv.appendChild(panel);
-            allPanels.push(panel);
-          });
-
-          container.appendChild(entriesDiv);
-          list.appendChild(container);
-
-          // Collapsible toggle
-          title.addEventListener("click", () => {
-            entriesDiv.style.display = entriesDiv.style.display === "none" ? "block" : "none";
-          });
-        })
-        .catch(err => console.error(`Failed to load ${feed.file}:`, err));
-    });
-
-    // ------------------------
-    // Search functionality
-    // ------------------------
-    const searchInput = document.getElementById("searchInput");
-    searchInput.addEventListener("input", () => {
-      const term = searchInput.value.toLowerCase();
-      allPanels.forEach(panel => {
-        panel.style.display = panel.textContent.toLowerCase().includes(term) ? "block" : "none";
-      });
-    });
-
-    // ------------------------
-    // Matrix background
-    // ------------------------
-    const c = document.getElementById("matrix");
-    c.width = window.innerWidth;
-    c.height = window.innerHeight;
-    const ctx = c.getContext("2d");
-
-    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%";
-    const fontSize = 14;
-    const columns = c.width / fontSize;
-    const drops = Array.from({length: columns}).map(() => 1);
-
-    function draw() {
-      ctx.fillStyle = "rgba(0,0,0,0.05)";
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.fillStyle = "#0f0";
-      ctx.font = fontSize + "px monospace";
-
-      for (let i = 0; i < drops.length; i++) {
-        const text = letters.charAt(Math.floor(Math.random() * letters.length));
-        ctx.fillText(text, i*fontSize, drops[i]*fontSize);
-        if(drops[i]*fontSize > c.height && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
-      }
+  for (let i = 0; i < drops.length; i++) {
+    const text = letters[Math.floor(Math.random() * letters.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > height && Math.random() > 0.975) {
+      drops[i] = 0;
     }
+    drops[i]++;
+  }
+}
+setInterval(drawMatrix, 50);
 
-    setInterval(draw, 35);
+window.addEventListener('resize', () => {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+});
 
-    window.addEventListener("resize", () => {
-      c.width = window.innerWidth;
-      c.height = window.innerHeight;
-    });
-  </script>
+/* ==== FEEDS & SEARCH ==== */
+const feeds = {
+  "Bleeping Computer": "bleeping.json",
+  "The Hacker News": "hackernews.json",
+  "CISA Advisories": "cisa.json",
+  "Mandiant Reports": "mandiant.json",
+  "Ransomware Live": "ransomware_live.json",
+  "MITRE ATT&CK Actors": "mitre.json"
+};
+
+const container = document.getElementById('feeds-container');
+const searchBox = document.getElementById('search-box');
+
+async function loadFeeds() {
+  for (const [feedName, feedFile] of Object.entries(feeds)) {
+    try {
+      const res = await fetch(feedFile);
+      const data = await res.json();
+
+      const panel = document.createElement('div');
+      panel.className = 'feed-panel';
+
+      const header = document.createElement('div');
+      header.className = 'feed-header';
+      header.textContent = `${feedName} (${data.length})`;
+      header.onclick = () => {
+        entriesDiv.style.display = entriesDiv.style.display === 'block' ? 'none' : 'block';
+      };
+      panel.appendChild(header);
+
+      const entriesDiv = document.createElement('div');
+      entriesDiv.className = 'feed-entries';
+
+      data.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = 'entry-card';
+
+        // Title
+        const title = document.createElement('a');
+        title.className = 'entry-title';
+        title.href = entry.link || '#';
+        title.target = '_blank';
+        title.textContent = entry.title || entry.actor_name || 'No title';
+        card.appendChild(title);
+
+        // Meta
+        const meta = document.createElement('div');
+        meta.className = 'entry-meta';
+        const pub = entry.published || entry.last_updated || '';
+        meta.textContent = pub ? `Published: ${new Date(pub).toLocaleString()}` : '';
+        card.appendChild(meta);
+
+        // Description / aliases / techniques
+        const desc = document.createElement('div');
+        desc.className = 'entry-desc';
+        let text = entry.summary || entry.description || '';
+        if (entry.aliases) text += `\nAliases: ${entry.aliases}`;
+        if (entry.techniques) text += `\nTechniques: ${entry.techniques}`;
+        desc.textContent = text;
+        card.appendChild(desc);
+
+        entriesDiv.appendChild(card);
+      });
+
+      panel.appendChild(entriesDiv);
+      container.appendChild(panel);
+
+    } catch (err) {
+      console.error(`Failed to load ${feedFile}:`, err);
+    }
+  }
+}
+
+/* ==== SEARCH FUNCTIONALITY ==== */
+searchBox.addEventListener('input', () => {
+  const query = searchBox.value.toLowerCase();
+  document.querySelectorAll('.entry-card').forEach(card => {
+    card.style.display = card.textContent.toLowerCase().includes(query) ? 'block' : 'none';
+  });
+});
+
+/* ==== INIT ==== */
+loadFeeds();
+</script>
+
 </body>
 </html>
