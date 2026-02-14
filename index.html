@@ -40,7 +40,7 @@ h1 {
 }
 
 #search-box {
-  width: 100%;
+  width: calc(100% - 80px);
   padding: 10px;
   font-size: 1em;
   margin-bottom: 10px;
@@ -81,7 +81,6 @@ button {
   border-radius:3px;
 }
 
-/* FEED PANELS */
 .feed-panel {
   margin-bottom: 20px;
   border: 1px solid #0ff;
@@ -147,17 +146,17 @@ button {
   border-radius: 4px;
 }
 
-/* HIGHLIGHT SEARCH TERM */
+/* === SEARCH HIGHLIGHT === */
 mark.highlight {
-  background-color: rgba(0, 255, 255, 0.5); /* light cyan/blue */
+  background-color: #0ff; /* neon blue */
   color: #000;
   padding: 0 2px;
   border-radius: 2px;
 }
 
-/* HIGHLIGHT WHEN SELECTING TEXT */
+/* === MANUAL TEXT SELECTION === */
 ::selection {
-  background-color: rgba(0, 255, 255, 0.5);
+  background-color: #0ff;
   color: #000;
 }
 </style>
@@ -168,7 +167,10 @@ mark.highlight {
 
 <div class="container">
   <h1>BlackWall | Threat Intelligence | (OSINT)</h1>
-  <input type="text" id="search-box" placeholder="Search feeds...">
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <input type="text" id="search-box" placeholder="Search feeds...">
+    <button id="clear-search">Clear</button>
+  </div>
   <div id="feed-note">Titles can be clicked to view the source</div>
   <div class="button-bar">
     <button id="expand-all">Expand All</button>
@@ -202,7 +204,7 @@ function drawMatrix() {
   }
 }
 setInterval(drawMatrix,50);
-window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;} );
+window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;});
 
 /* ==== FEEDS ==== */
 const feeds = {
@@ -216,6 +218,7 @@ const feeds = {
 
 const container = document.getElementById('feeds-container');
 const searchBox = document.getElementById('search-box');
+const searchStatus = document.getElementById('search-status');
 
 function addField(card, label, value) {
   if (!value) return;
@@ -248,8 +251,7 @@ async function loadFeeds() {
       const entriesDiv = document.createElement('div');
       entriesDiv.className = 'feed-entries';
       header.onclick = () => {
-        entriesDiv.style.display =
-          entriesDiv.style.display === 'block' ? 'none' : 'block';
+        entriesDiv.style.display = entriesDiv.style.display === 'block' ? 'none' : 'block';
       };
 
       data.forEach(entry => {
@@ -296,9 +298,13 @@ async function loadFeeds() {
   }
 }
 
-/* ==== SEARCH + HIGHLIGHT + AUTO-EXPAND + NO MATCHES ==== */
+/* ==== SEARCH + AUTO-HIGHLIGHT + AUTO-EXPAND + NO MATCHES ==== */
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 searchBox.addEventListener('input', () => {
-  const query = searchBox.value.trim().toLowerCase();
+  const query = searchBox.value.toLowerCase();
   let anyMatch = false;
 
   document.querySelectorAll('.feed-panel').forEach(panel => {
@@ -306,40 +312,40 @@ searchBox.addEventListener('input', () => {
     let panelHasMatch = false;
 
     entriesDiv.querySelectorAll('.entry-card').forEach(card => {
-      // Reset previous highlights
-      card.querySelectorAll('mark.highlight').forEach(mark => {
-        mark.replaceWith(document.createTextNode(mark.textContent));
+      // Reset highlights
+      card.querySelectorAll('mark.highlight').forEach(m => {
+        const parent = m.parentNode;
+        parent.replaceChild(document.createTextNode(m.textContent), m);
       });
 
-      const cardText = card.textContent.toLowerCase();
-      const isMatch = cardText.includes(query);
+      const textContent = card.textContent.toLowerCase();
+      const isMatch = query && textContent.includes(query);
 
-      // Highlight term in text nodes
-      if (isMatch && query) {
-        card.querySelectorAll('*').forEach(node => {
-          if (node.childNodes && node.childNodes.length > 0) {
-            node.childNodes.forEach(child => {
-              if (child.nodeType === 3) { // text node
-                const regex = new RegExp(`(${query})`, 'gi');
-                const span = document.createElement('span');
-                span.innerHTML = child.textContent.replace(regex, '<mark class="highlight">$1</mark>');
-                child.replaceWith(span);
-              }
-            });
+      card.style.display = isMatch || query === '' ? 'block' : 'none';
+      if (isMatch) {
+        panelHasMatch = true;
+        anyMatch = true;
+
+        // Highlight matches
+        const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+        card.querySelectorAll('*').forEach(el => {
+          if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+            el.innerHTML = el.textContent.replace(regex, '<mark class="highlight">$1</mark>');
           }
         });
       }
-
-      card.style.display = isMatch ? 'block' : 'none';
-      if (isMatch) panelHasMatch = true;
     });
 
-    // Expand panel if matches found
     entriesDiv.style.display = panelHasMatch ? 'block' : (query === '' ? 'none' : 'none');
-    if (panelHasMatch) anyMatch = true;
   });
 
-  document.getElementById('search-status').style.display = query && !anyMatch ? 'block' : 'none';
+  searchStatus.style.display = query && !anyMatch ? 'block' : 'none';
+});
+
+/* ==== CLEAR SEARCH ==== */
+document.getElementById('clear-search').addEventListener('click', () => {
+  searchBox.value = '';
+  searchBox.dispatchEvent(new Event('input'));
 });
 
 /* ==== EXPAND / COLLAPSE ALL BUTTONS ==== */
