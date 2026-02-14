@@ -43,10 +43,42 @@ h1 {
   width: 100%;
   padding: 10px;
   font-size: 1em;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   background: #111;
   border: 1px solid #0ff;
   color: #0ff;
+}
+
+#feed-note {
+  color: #6f6;
+  font-size: 0.9em;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+#search-status {
+  text-align:center;
+  color:#f66;
+  font-weight:bold;
+  margin-bottom:10px;
+  display:none;
+}
+
+.button-bar {
+  display:flex;
+  justify-content:flex-end;
+  margin-bottom:10px;
+  gap:10px;
+}
+
+button {
+  background:#0ff;
+  color:#060;
+  border:none;
+  padding:5px 10px;
+  cursor:pointer;
+  font-weight:bold;
+  border-radius:3px;
 }
 
 .feed-panel {
@@ -122,6 +154,12 @@ h1 {
 <div class="container">
   <h1>BlackWall | Threat Intelligence | (OSINT)</h1>
   <input type="text" id="search-box" placeholder="Search feeds...">
+  <div id="feed-note">Titles can be clicked to view the source</div>
+  <div class="button-bar">
+    <button id="expand-all">Expand All</button>
+    <button id="collapse-all">Collapse All</button>
+  </div>
+  <div id="search-status">No matches found</div>
   <div id="feeds-container"></div>
 </div>
 
@@ -217,32 +255,18 @@ async function loadFeeds() {
           addField(card, "Published (UTC):", iso);
         }
 
-        /* Summary (normalize description -> summary) */
+        /* Summary */
         let summary = entry.summary || entry.description;
         if (summary) {
           summary = summary.replace(/\.\.\.$/, '');
           addField(card, "Summary:", summary);
         }
 
-        /* Aliases */
-        if (entry.aliases)
-          addField(card, "Aliases:", entry.aliases);
-
-        /* Techniques */
-        if (entry.techniques)
-          addField(card, "Techniques:", entry.techniques);
-
-        /* Attribution */
-        if (entry.attribution)
-          addField(card, "Attribution:", entry.attribution);
-
-        /* Country */
-        if (entry.country)
-          addField(card, "Country:", entry.country);
-
-        /* Website */
-        if (entry.website)
-          addField(card, "Website:", entry.website);
+        if (entry.aliases) addField(card, "Aliases:", entry.aliases);
+        if (entry.techniques) addField(card, "Techniques:", entry.techniques);
+        if (entry.attribution) addField(card, "Attribution:", entry.attribution);
+        if (entry.country) addField(card, "Country:", entry.country);
+        if (entry.website) addField(card, "Website:", entry.website);
 
         entriesDiv.appendChild(card);
       });
@@ -256,15 +280,38 @@ async function loadFeeds() {
   }
 }
 
-/* SEARCH */
+/* ==== SEARCH + AUTO-EXPAND + NO MATCHES ==== */
 searchBox.addEventListener('input', () => {
   const query = searchBox.value.toLowerCase();
-  document.querySelectorAll('.entry-card').forEach(card => {
-    card.style.display =
-      card.textContent.toLowerCase().includes(query) ? 'block' : 'none';
+  let anyMatch = false;
+
+  document.querySelectorAll('.feed-panel').forEach(panel => {
+    const entriesDiv = panel.querySelector('.feed-entries');
+    let panelHasMatch = false;
+
+    entriesDiv.querySelectorAll('.entry-card').forEach(card => {
+      const isMatch = card.textContent.toLowerCase().includes(query);
+      card.style.display = isMatch ? 'block' : 'none';
+      if (isMatch) panelHasMatch = true;
+    });
+
+    // Expand panel if matches found
+    entriesDiv.style.display = panelHasMatch ? 'block' : (query === '' ? 'none' : 'none');
+    if (panelHasMatch) anyMatch = true;
   });
+
+  document.getElementById('search-status').style.display = query && !anyMatch ? 'block' : 'none';
 });
 
+/* ==== EXPAND / COLLAPSE ALL BUTTONS ==== */
+document.getElementById('expand-all').addEventListener('click', () => {
+  document.querySelectorAll('.feed-entries').forEach(div => div.style.display = 'block');
+});
+document.getElementById('collapse-all').addEventListener('click', () => {
+  document.querySelectorAll('.feed-entries').forEach(div => div.style.display = 'none');
+});
+
+/* ==== INIT ==== */
 loadFeeds();
 </script>
 </body>
