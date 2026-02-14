@@ -39,21 +39,36 @@ h1 {
   text-shadow: 0 0 5px #0ff, 0 0 10px #0ff;
 }
 
+#search-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 #search-box {
-  width: calc(100% - 100px);
+  flex: 1;
   padding: 10px;
   font-size: 1em;
-  margin-bottom: 10px;
   background: #111;
   border: 1px solid #0ff;
   color: #0ff;
-  display: inline-block;
+}
+
+#clear-search {
+  background:#0ff;
+  color:#060;
+  border:none;
+  padding:5px 10px;
+  cursor:pointer;
+  font-weight:bold;
+  border-radius:3px;
 }
 
 #feed-note {
   color: #6f6;
   font-size: 0.9em;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   text-align: center;
 }
 
@@ -129,18 +144,24 @@ button {
 }
 
 .heading {
-  color: #6f6;   /* dark green */
+  color: #6f6;
   font-weight: bold;
   margin-top: 6px;
 }
 
 .value {
-  color: #afa;   /* light green */
+  color: #afa;
   margin-left: 5px;
 }
 
+/* NEON BLUE HIGHLIGHT FOR SEARCH & SELECTION */
 mark.highlight {
-  background-color: #0ff;
+  background-color: #0ff; /* neon blue */
+  color: #000;
+}
+
+::selection {
+  background: #0ff; /* neon blue */
   color: #000;
 }
 
@@ -160,8 +181,10 @@ mark.highlight {
 <div class="container">
   <h1>BlackWall | Threat Intelligence | (OSINT)</h1>
 
-  <input type="text" id="search-box" placeholder="Search feeds...">
-  <button id="clear-search">Clear</button>
+  <div id="search-container">
+    <input type="text" id="search-box" placeholder="Search feeds...">
+    <button id="clear-search">Clear</button>
+  </div>
 
   <div id="feed-note">Titles can be clicked to view the source</div>
 
@@ -199,7 +222,7 @@ function drawMatrix() {
   }
 }
 setInterval(drawMatrix,50);
-window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;} );
+window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;});
 
 /* ==== FEEDS ==== */
 const feeds = {
@@ -213,12 +236,6 @@ const feeds = {
 
 const container = document.getElementById('feeds-container');
 const searchBox = document.getElementById('search-box');
-const searchStatus = document.getElementById('search-status');
-
-/* Utility to escape regex special characters */
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function addField(card, label, value) {
   if (!value) return;
@@ -233,38 +250,7 @@ function addField(card, label, value) {
   card.appendChild(val);
 }
 
-/* Recursive highlight for text nodes */
-function highlightText(node, query) {
-  if (!query) return;
-  const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-
-  for (let child of Array.from(node.childNodes)) {
-    if (child.nodeType === 3) { // text node
-      const frag = document.createDocumentFragment();
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(child.data)) !== null) {
-        if (match.index > lastIndex) {
-          frag.appendChild(document.createTextNode(child.data.substring(lastIndex, match.index)));
-        }
-        const mark = document.createElement('mark');
-        mark.className = 'highlight';
-        mark.textContent = match[0];
-        frag.appendChild(mark);
-        lastIndex = match.index + match[0].length;
-      }
-      if (lastIndex < child.data.length) {
-        frag.appendChild(document.createTextNode(child.data.substring(lastIndex)));
-      }
-
-      child.parentNode.replaceChild(frag, child);
-    } else {
-      highlightText(child, query);
-    }
-  }
-}
-
+/* ==== FEED LOADING ==== */
 async function loadFeeds() {
   for (const [feedName, feedFile] of Object.entries(feeds)) {
     try {
@@ -282,7 +268,8 @@ async function loadFeeds() {
       const entriesDiv = document.createElement('div');
       entriesDiv.className = 'feed-entries';
       header.onclick = () => {
-        entriesDiv.style.display = entriesDiv.style.display === 'block' ? 'none' : 'block';
+        entriesDiv.style.display =
+          entriesDiv.style.display === 'block' ? 'none' : 'block';
       };
 
       data.forEach(entry => {
@@ -297,13 +284,14 @@ async function loadFeeds() {
         card.appendChild(title);
 
         const pub = entry.published || entry.last_updated;
-        if (pub) addField(card, "Published (UTC):", new Date(pub).toISOString().replace('T',' ').split('.')[0] + "Z");
+        if (pub) {
+          const iso = new Date(pub).toISOString().replace('T',' ').split('.')[0] + "Z";
+          addField(card, "Published (UTC):", iso);
+        }
 
         let summary = entry.summary || entry.description;
-        if (summary) {
-          summary = summary.replace(/\.\.\.$/, '');
-          addField(card, "Summary:", summary);
-        }
+        if (summary) summary = summary.replace(/\.\.\.$/, '');
+        if (summary) addField(card, "Summary:", summary);
 
         if (entry.aliases) addField(card, "Aliases:", entry.aliases);
         if (entry.techniques) addField(card, "Techniques:", entry.techniques);
@@ -322,7 +310,40 @@ async function loadFeeds() {
   }
 }
 
-/* ==== SEARCH + AUTO-EXPAND + HIGHLIGHT + NO MATCHES ==== */
+/* ==== SEARCH + HIGHLIGHT ==== */
+function removeHighlights(element) {
+  element.querySelectorAll('mark.highlight').forEach(mark => {
+    const parent = mark.parentNode;
+    parent.replaceChild(document.createTextNode(mark.textContent), mark);
+    parent.normalize();
+  });
+}
+
+function highlightText(element, query) {
+  if (!query) return;
+  const regex = new RegExp(`(${query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeValue.toLowerCase().includes(query.toLowerCase())) {
+      const frag = document.createDocumentFragment();
+      let lastIndex = 0;
+      node.nodeValue.replace(regex, (match) => {
+        const idx = node.nodeValue.toLowerCase().indexOf(match.toLowerCase(), lastIndex);
+        if (idx > lastIndex) frag.appendChild(document.createTextNode(node.nodeValue.slice(lastIndex, idx)));
+        const mark = document.createElement('mark');
+        mark.className = 'highlight';
+        mark.textContent = match;
+        frag.appendChild(mark);
+        lastIndex = idx + match.length;
+        return match;
+      });
+      frag.appendChild(document.createTextNode(node.nodeValue.slice(lastIndex)));
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
+}
+
 searchBox.addEventListener('input', () => {
   const query = searchBox.value.toLowerCase();
   let anyMatch = false;
@@ -332,27 +353,20 @@ searchBox.addEventListener('input', () => {
     let panelHasMatch = false;
 
     entriesDiv.querySelectorAll('.entry-card').forEach(card => {
-      // Remove previous highlights
-      card.querySelectorAll('mark.highlight').forEach(m => {
-        const parent = m.parentNode;
-        parent.replaceChild(document.createTextNode(m.textContent), m);
-      });
-
-      const textContent = card.textContent.toLowerCase();
-      const isMatch = query && textContent.includes(query);
-
-      card.style.display = isMatch || query === '' ? 'block' : 'none';
+      removeHighlights(card);
+      const isMatch = card.textContent.toLowerCase().includes(query);
+      card.style.display = isMatch ? 'block' : 'none';
       if (isMatch) {
-        panelHasMatch = true;
-        anyMatch = true;
         highlightText(card, query);
+        panelHasMatch = true;
       }
     });
 
     entriesDiv.style.display = panelHasMatch ? 'block' : (query === '' ? 'none' : 'none');
+    if (panelHasMatch) anyMatch = true;
   });
 
-  searchStatus.style.display = query && !anyMatch ? 'block' : 'none';
+  document.getElementById('search-status').style.display = query && !anyMatch ? 'block' : 'none';
 });
 
 /* ==== CLEAR SEARCH BUTTON ==== */
