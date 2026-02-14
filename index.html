@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Threat Intelligence OSINT Dashboard</title>
+  <title>BlackWall Threat Intelligence (OSINT)</title>
   <style>
     /* ------------------------
        Body & Fonts
@@ -14,68 +14,35 @@
       color: #00ff99;
       margin: 0;
       padding: 20px;
-      position: relative;
-      min-height: 100vh;
-      overflow-x: hidden;
     }
 
-    h1, h2 {
-      color: #00ffff;
-      text-shadow: 0 0 5px #00ffff, 0 0 10px #ff00ff;
-    }
+    h1 { color: #00ffff; text-shadow: 0 0 5px #00ffff, 0 0 10px #ff00ff; }
+    h2 { cursor: pointer; margin-bottom: 10px; }
 
     /* ------------------------
-       Containers
+       Feed container & search
     ------------------------ */
-    .container {
-      max-width: 1000px;
-      margin: auto;
-      position: relative;
-      z-index: 2; /* float above matrix background */
-    }
-
-    .feed-container {
-      margin-bottom: 40px;
-    }
-
+    .container { max-width: 1200px; margin: auto; }
+    .search-box { margin-bottom: 20px; padding: 5px; width: 100%; font-size: 1em; }
+    .feed-container { margin-bottom: 40px; border: 1px solid #00ff99; padding: 10px; background: rgba(0,0,0,0.6); box-shadow: 0 0 10px #00ff99, 0 0 20px #ff00ff; }
+    .entries { display: none; margin-top: 10px; }
     .entry-panel {
       border: 1px solid #00ff99;
       padding: 10px 15px;
-      margin: 10px 0;
-      background: rgba(0, 0, 0, 0.6);
-      box-shadow: 0 0 10px #00ff99, 0 0 20px #ff00ff;
-      transition: transform 0.2s, box-shadow 0.2s;
+      margin: 5px 0;
+      background: rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 5px #00ff99, 0 0 10px #ff00ff;
     }
+    .entry-panel:hover { transform: scale(1.01); }
 
-    .entry-panel:hover {
-      transform: scale(1.02);
-      box-shadow: 0 0 20px #00ff99, 0 0 30px #ff00ff;
-    }
+    a { color: #00ff99; text-decoration: none; font-weight: bold; }
+    a:hover { text-decoration: underline; }
 
-    a {
-      color: #00ff99;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    small {
-      display: block;
-      color: #66ff99;
-      margin-top: 5px;
-    }
-
-    footer {
-      text-align: center;
-      margin-top: 40px;
-      color: #00ff99;
-    }
+    small { display: block; color: #66ff99; margin-top: 5px; }
+    footer { text-align: center; margin-top: 40px; color: #00ff99; }
 
     /* ------------------------
-       Matrix Background
+       Matrix background
     ------------------------ */
     canvas#matrix {
       position: fixed;
@@ -92,29 +59,25 @@
   <canvas id="matrix"></canvas>
   <div class="container">
     <h1>Threat Intelligence OSINT Dashboard</h1>
-    <p>Latest threat intelligence feeds. Click titles to view original source.</p>
+    <input class="search-box" type="text" id="searchInput" placeholder="Search all feeds...">
     <div id="json-list"></div>
     <footer>Updated daily</footer>
   </div>
 
   <script>
-    // ------------------------
-    // Feeds config
-    // ------------------------
     const feeds = [
-      { name: "Bleeping Computer", file: "bleeping.json" },
-      { name: "The Hacker News", file: "hackernews.json" },
-      { name: "CISA Advisories", file: "cisa.json" },
-      { name: "Mandiant Reports", file: "mandiant.json" },
-      { name: "Ransomware Live", file: "ransomware_live.json" },
-      { name: "MITRE ATT&CK Actors", file: "mitre.json" },
+      { name: "Bleeping Computer", file: "bleeping.json", type: "standard" },
+      { name: "The Hacker News", file: "hackernews.json", type: "standard" },
+      { name: "CISA Advisories", file: "cisa.json", type: "standard" },
+      { name: "Mandiant Reports", file: "mandiant.json", type: "standard" },
+      { name: "Ransomware Live", file: "ransomware_live.json", type: "standard" },
+      { name: "MITRE ATT&CK Actors", file: "mitre.json", type: "mitre" },
     ];
 
     const list = document.getElementById("json-list");
 
-    // ------------------------
-    // Load JSON & build panels
-    // ------------------------
+    const allPanels = [];
+
     feeds.forEach(feed => {
       fetch(feed.file)
         .then(res => res.json())
@@ -123,25 +86,55 @@
           container.className = "feed-container";
 
           const title = document.createElement("h2");
-          title.textContent = feed.name;
+          title.textContent = feed.name + ` (${data.length})`;
           container.appendChild(title);
 
-          data.slice(0, 10).forEach(item => {
+          const entriesDiv = document.createElement("div");
+          entriesDiv.className = "entries";
+
+          data.slice(0, 20).forEach(item => {
             const panel = document.createElement("div");
             panel.className = "entry-panel";
-            panel.innerHTML = `
-              <a href="${item.link}" target="_blank">${item.title}</a>
-              <p>${item.summary}</p>
-              <small>${new Date(item.published).toLocaleString()}</small>
-            `;
-            container.appendChild(panel);
+
+            // Field mapping per type
+            if(feed.type === "mitre") {
+              panel.innerHTML = `
+                <a href="${item.mitre_url}" target="_blank">${item.actor_name}</a>
+                <p>${item.description}</p>
+                <small>Techniques: ${item.techniques || "N/A"} | Last Updated: ${new Date(item.last_updated).toLocaleString()}</small>
+              `;
+            } else {
+              panel.innerHTML = `
+                <a href="${item.link}" target="_blank">${item.title}</a>
+                <p>${item.summary}</p>
+                <small>${new Date(item.published).toLocaleString()}</small>
+              `;
+            }
+
+            entriesDiv.appendChild(panel);
+            allPanels.push(panel);
           });
 
+          container.appendChild(entriesDiv);
           list.appendChild(container);
+
+          // Collapsible toggle
+          title.addEventListener("click", () => {
+            entriesDiv.style.display = entriesDiv.style.display === "none" ? "block" : "none";
+          });
         })
-        .catch(err => {
-          console.error(`Failed to load ${feed.file}:`, err);
-        });
+        .catch(err => console.error(`Failed to load ${feed.file}:`, err));
+    });
+
+    // ------------------------
+    // Search functionality
+    // ------------------------
+    const searchInput = document.getElementById("searchInput");
+    searchInput.addEventListener("input", () => {
+      const term = searchInput.value.toLowerCase();
+      allPanels.forEach(panel => {
+        panel.style.display = panel.textContent.toLowerCase().includes(term) ? "block" : "none";
+      });
     });
 
     // ------------------------
