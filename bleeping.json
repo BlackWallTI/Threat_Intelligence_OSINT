@@ -1,50 +1,18 @@
 [
   {
     "source": "Bleeping Computer",
-    "title": "Fake job recruiters hide malware in developer coding challenges",
-    "link": "https://www.bleepingcomputer.com/news/security/fake-job-recruiters-hide-malware-in-developer-coding-challenges/",
-    "published": "2026-02-13T22:35:37",
-    "summary": "A new variation of the fake recruiter campaign from North Korean threat actors is targeting JavaScript and Python developers with cryptocurrency-related tasks. [...]",
+    "title": "One threat actor responsible for 83% of recent Ivanti RCE attacks",
+    "link": "https://www.bleepingcomputer.com/news/security/one-threat-actor-responsible-for-83-percent-of-recent-ivanti-rce-attacks/",
+    "published": "2026-02-14T16:02:34",
+    "summary": "Threat intelligence observations show that a\u00a0single threat actor is responsible for most of the active exploitation of two critical vulnerabilities in\u00a0Ivanti Endpoint Manager Mobile (EPMM), tracked as\u00a0CVE-2026-21962 and CVE-2026-24061. [...]",
     "extra": {}
   },
   {
     "source": "Bleeping Computer",
-    "title": "Claude LLM artifacts abused to push Mac infostealers in ClickFix attack",
-    "link": "https://www.bleepingcomputer.com/news/security/claude-llm-artifacts-abused-to-push-mac-infostealers-in-clickfix-attack/",
-    "published": "2026-02-13T20:21:43",
-    "summary": "Threat actors are abusing\u00a0Claude artifacts and Google Ads in ClickFix campaigns that deliver infostealer malware to macOS users searching for specific queries. [...]",
-    "extra": {}
-  },
-  {
-    "source": "Bleeping Computer",
-    "title": "Louis Vuitton, Dior, and Tiffany fined $25 million over data breaches",
-    "link": "https://www.bleepingcomputer.com/news/security/louis-vuitton-dior-and-tiffany-fined-25-million-over-data-breaches/",
-    "published": "2026-02-13T18:35:15",
-    "summary": "South Korea has fined luxury fashion brands Louis Vuitton, Christian Dior Couture, and Tiffany $25 million for failing to implement adequate security measures, which facilitated unauthorized access and the exposure of data belonging to more than 5.5 million customers. [...]",
-    "extra": {}
-  },
-  {
-    "source": "Bleeping Computer",
-    "title": "Turning IBM QRadar Alerts into Action with Criminal IP",
-    "link": "https://www.bleepingcomputer.com/news/security/turning-ibm-qradar-alerts-into-action-with-criminal-ip/",
-    "published": "2026-02-13T15:05:15",
-    "summary": "Criminal IP now integrates with IBM QRadar SIEM and SOAR to bring external IP-based threat intelligence directly into detection and response workflows. See how risk scoring and automated enrichment help SOC teams prioritize high-risk IPs and accelerate investigations without leaving QRadar. [...]",
-    "extra": {}
-  },
-  {
-    "source": "Bleeping Computer",
-    "title": "CISA flags critical Microsoft SCCM flaw as exploited in attacks",
-    "link": "https://www.bleepingcomputer.com/news/security/cisa-flags-microsoft-configmgr-rce-flaw-as-exploited-in-attacks/",
-    "published": "2026-02-13T12:35:09",
-    "summary": "CISA ordered federal agencies on Thursday to secure their systems against a critical Microsoft Configuration Manager vulnerability patched in October 2024 and now exploited in attacks. [...]",
-    "extra": {}
-  },
-  {
-    "source": "Bleeping Computer",
-    "title": "Microsoft fixes bug that blocked Google Chrome from launching",
-    "link": "https://www.bleepingcomputer.com/news/microsoft/microsoft-fixes-family-safety-bug-that-blocks-google-chrome-from-launching/",
-    "published": "2026-02-13T09:31:01",
-    "summary": "Microsoft has fixed a known issue causing its Family Safety parental control service to block Windows users from launching Google Chrome and other web browsers. [...]",
+    "title": "Snail mail letters target Trezor and Ledger users in crypto-theft attacks",
+    "link": "https://www.bleepingcomputer.com/news/security/snail-mail-letters-target-trezor-and-ledger-users-in-crypto-theft-attacks/",
+    "published": "2026-02-14T15:15:25",
+    "summary": "Threat actors are sending physical letters pretending to be from Trezor and Ledger, makers of cryptocurrency hardware wallets, to trick users into submitting recovery phrases in crypto theft attacks. [...]",
     "extra": {}
   }
 ]
