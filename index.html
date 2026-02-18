@@ -12,12 +12,11 @@ h1 { color:#0ff; text-align:center; font-size:2em; text-shadow:0 0 5px #0ff,0 0 
 
 #search-container { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; align-items:center; }
 #search-box { flex:1; padding:10px; font-size:1em; background:#111; border:1px solid #0ff; color:#0ff; }
-button, select { background:#0ff; color:#060; border:none; padding:5px 10px; cursor:pointer; font-weight:bold; border-radius:3px; }
+button { background:#0ff; color:#060; border:none; padding:5px 10px; cursor:pointer; font-weight:bold; border-radius:3px; }
 
 #feed-note { color:#6f6; font-size:0.9em; margin-bottom:10px; text-align:center; }
-#search-status, #archive-note { text-align:center; color:#f66; font-weight:bold; margin-bottom:10px; display:none; }
+#search-status { text-align:center; color:#f66; font-weight:bold; margin-bottom:10px; display:none; }
 
-.button-bar { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
 .feed-panel { margin-bottom:20px; border:1px solid #0ff; border-radius:5px; overflow:hidden; background:rgba(0,0,0,0.7); box-shadow:0 0 10px #0ff; }
 .feed-header { padding:10px; background:#000; cursor:pointer; font-weight:bold; font-size:1.2em; text-shadow:0 0 5px #0ff; }
 .feed-entries { display:none; padding:10px; max-height:500px; overflow-y:auto; }
@@ -26,7 +25,6 @@ button, select { background:#0ff; color:#060; border:none; padding:5px 10px; cur
 .entry-title { font-size:1.1em; font-weight:bold; color:#0ff; text-decoration:none; }
 .heading { color:#6f6; font-weight:bold; margin-top:6px; }
 .value { color:#afa; margin-left:5px; }
-mark.highlight { background-color:#0ff; color:#000; }
 ::selection { background:#0ff; color:#000; }
 .feed-entries::-webkit-scrollbar { width:8px; }
 .feed-entries::-webkit-scrollbar-thumb { background:#0ff; border-radius:4px; }
@@ -40,8 +38,6 @@ mark.highlight { background-color:#0ff; color:#000; }
   <h1>BlackWall | Threat Intelligence | (OSINT)</h1>
 
   <div id="search-container">
-    <button id="last-24h">Last 24 Hours</button>
-    <button id="archive">Archive</button>
     <input type="text" id="search-box" placeholder="Search feeds...">
     <button id="search-submit">Search</button>
     <button id="clear-search">Clear</button>
@@ -50,7 +46,6 @@ mark.highlight { background-color:#0ff; color:#000; }
   </div>
 
   <div id="feed-note">Titles can be clicked to view the source</div>
-  <div id="archive-note"></div>
   <div id="search-status">No matches found</div>
   <div id="feeds-container"></div>
 </div>
@@ -58,7 +53,6 @@ mark.highlight { background-color:#0ff; color:#000; }
 <script>
 /* ==== ELEMENTS ==== */
 const container = document.getElementById('feeds-container');
-const archiveNote = document.getElementById('archive-note');
 const searchBox = document.getElementById('search-box');
 
 /* ==== MATRIX ==== */
@@ -85,35 +79,27 @@ function drawMatrix() {
 setInterval(drawMatrix,50);
 window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;});
 
-/* ==== FEEDS INDEX ==== */
+/* ==== FETCH 24H FEEDS ==== */
 async function fetchFeedsIndex() {
   try {
     const res = await fetch('archives_index.json');
     return await res.json();
   } catch(e) {
     console.error('Failed to load feeds index', e);
-    return {feeds:{}, archives:{}};
+    return {feeds:{}};
   }
 }
 
-/* ==== HELPERS ==== */
 function addField(card,label,value){
   if(!value) return;
   const h = document.createElement('div'); h.className='heading'; h.textContent=label; card.appendChild(h);
   const v = document.createElement('div'); v.className='value'; v.textContent=value; card.appendChild(v);
 }
 
-/* ==== LOAD FEED ==== */
-async function loadFeed(file, feedName, isNdjson=false){
+async function loadFeed(file, feedName){
   try{
     const res = await fetch(file);
-    let data;
-    if(isNdjson){
-      const text = await res.text();
-      data = text.split('\n').filter(l => l.trim() !== '').map(JSON.parse);
-    } else {
-      data = await res.json();
-    }
+    const data = await res.json();
 
     const panel = document.createElement('div'); panel.className='feed-panel';
     const header = document.createElement('div'); header.className='feed-header';
@@ -151,75 +137,47 @@ async function loadFeed(file, feedName, isNdjson=false){
 
   } catch(e){
     console.error(`Error loading ${file}`,e);
-    archiveNote.style.display='block';
-    archiveNote.textContent='Timeframe error';
   }
 }
 
-/* ==== LOAD 24H FEEDS ==== */
+/* ==== LOAD 24H ==== */
 async function load24h(){
-  container.innerHTML=''; archiveNote.style.display='none';
+  container.innerHTML='';
   const {feeds: allFeeds} = await fetchFeedsIndex();
   for(const [name,file] of Object.entries(allFeeds)) await loadFeed(file,name);
 }
 window.addEventListener('load',load24h);
-
-/* ==== ARCHIVE BUTTON ==== */
-document.getElementById('last-24h').addEventListener('click',load24h);
-
-document.getElementById('archive').addEventListener('click',async()=>{
-  container.innerHTML=''; archiveNote.style.display='block'; archiveNote.textContent='Displaying all archive feeds';
-  const {archives: allArchives} = await fetchFeedsIndex();
-  for(const [feedKey, files] of Object.entries(allArchives)){
-    for(const f of files){
-      await loadFeed(f, feedKey.charAt(0).toUpperCase()+feedKey.slice(1)+' Archive', true);
-    }
-  }
-});
-
-/* ==== EXPAND / COLLAPSE ==== */
-document.getElementById('expand-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='block');});
-document.getElementById('collapse-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='none');});
 
 /* ==== SEARCH ==== */
 async function searchFeeds(){
   const query = searchBox.value.trim().toLowerCase();
   if(!query) return;
 
-  container.innerHTML=''; archiveNote.style.display='none';
-  let anyMatch=false;
+  container.innerHTML=''; let anyMatch=false;
+  const {feeds: allFeeds} = await fetchFeedsIndex();
 
-  const {feeds: allFeeds, archives: allArchives} = await fetchFeedsIndex();
-
-  async function searchFile(file, feedName, isNdjson=false){
+  async function searchFile(file, feedName){
     try{
       const res = await fetch(file);
-      let data;
-      if(isNdjson){
-        const text = await res.text();
-        data = text.split('\n').filter(l => l.trim() !== '').map(JSON.parse);
-      } else {
-        data = await res.json();
-      }
-
+      const data = await res.json();
       const matched = data.filter(entry=>{
         const text=(entry.title||entry.actor_name||'')+' '+(entry.summary||entry.description||'')+' '+(entry.aliases||'')+' '+(entry.techniques||'')+' '+(entry.attribution||'');
         return text.toLowerCase().includes(query);
       });
-
-      if(matched.length>0){ anyMatch=true; await loadFeed(file,feedName,isNdjson); }
+      if(matched.length>0){ anyMatch=true; await loadFeed(file,feedName); }
     }catch(e){ console.error(e); }
   }
 
-  for(const [name,file] of Object.entries(allFeeds)) await searchFile(file,name,false);
-  for(const [feedKey, files] of Object.entries(allArchives)) for(const f of files) await searchFile(f,feedKey+' Archive', true);
+  for(const [name,file] of Object.entries(allFeeds)) await searchFile(file,name);
 
   document.getElementById('search-status').style.display=anyMatch?'none':'block';
 }
 
 document.getElementById('search-submit').addEventListener('click',searchFeeds);
-searchBox.addEventListener('keydown',e=>{if(e.key==='Enter')searchFeeds();});
-document.getElementById('clear-search').addEventListener('click',()=>{searchBox.value=''; load24h(); archiveNote.style.display='none';});
+searchBox.addEventListener('keydown', e => { if(e.key==='Enter') searchFeeds(); });
+document.getElementById('clear-search').addEventListener('click',()=>{ searchBox.value=''; load24h(); });
+document.getElementById('expand-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='block');});
+document.getElementById('collapse-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='none');});
 </script>
 
 </body>
