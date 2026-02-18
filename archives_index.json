@@ -1,8 +1,19 @@
 {
-  "bleeping": [],
-  "cisa": [],
-  "hackernews": [],
-  "mandiant": [],
-  "mitre": [],
-  "ransomware_live": []
+  "bleeping": [
+    "archive/bleeping/bleeping_2026-02-18_10-56-15.ndjson",
+    "archive/bleeping/bleeping_2026-02-18_10-03-15.ndjson"
+  ],
+  "hackernews": [
+    "archive/hackernews/hackernews_2026-02-18_10-03-20.ndjson"
+  ],
+  "cisa": [
+    "archive/cisa/cisa_2026-02-18_10-03-24.ndjson"
+  ],
+  "mandiant": [
+    "archive/mandiant/mandiant_2026-02-18_10-03-26.ndjson"
+  ],
+  "ransomware_live": [
+    "archive/ransomware_live/ransomware_live_2026-02-18_10-01-31.ndjson"
+  ],
+  "mitre": []
 }
