@@ -54,6 +54,7 @@ button { background:#0ff; color:#060; border:none; padding:5px 10px; cursor:poin
 /* ==== ELEMENTS ==== */
 const container = document.getElementById('feeds-container');
 const searchBox = document.getElementById('search-box');
+const searchStatus = document.getElementById('search-status');
 
 /* ==== MATRIX ==== */
 const canvas = document.getElementById('matrix');
@@ -62,8 +63,8 @@ let width = canvas.width = window.innerWidth;
 let height = canvas.height = window.innerHeight;
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%'.split('');
 const fontSize = 18;
-const columns = Math.floor(width / fontSize);
-const drops = Array(columns).fill(0);
+let columns = Math.floor(width / fontSize);
+let drops = Array(columns).fill(0);
 
 function drawMatrix() {
   ctx.fillStyle = 'rgba(0,0,0,0.05)';
@@ -77,76 +78,91 @@ function drawMatrix() {
   }
 }
 setInterval(drawMatrix,50);
-window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight;});
+window.addEventListener('resize',()=>{
+  width=canvas.width=window.innerWidth;
+  height=canvas.height=window.innerHeight;
+  columns = Math.floor(width / fontSize);
+  drops = Array(columns).fill(0);
+});
 
-/* ==== FETCH 24H FEEDS ==== */
+/* ==== FETCH FEEDS INDEX ==== */
 async function fetchFeedsIndex() {
   try {
     const res = await fetch('archives_index.json');
     return await res.json();
-  } catch(e) {
-    console.error('Failed to load feeds index', e);
-    return {feeds:{}};
-  }
+  } catch(e) { console.error('Failed to load feeds index', e); return {}; }
 }
 
+/* ==== PARSE FEED FILE ==== */
+async function parseFeedFile(file) {
+  try {
+    const res = await fetch(file);
+    if(file.endsWith('.json')) return await res.json();
+    const text = await res.text();
+    return text.split('\n').filter(l=>l.trim()).map(l=>JSON.parse(l));
+  } catch(e){ console.error('Failed to parse file', file, e); return []; }
+}
+
+/* ==== ADD FIELD ==== */
 function addField(card,label,value){
   if(!value) return;
-  const h = document.createElement('div'); h.className='heading'; h.textContent=label; card.appendChild(h);
-  const v = document.createElement('div'); v.className='value'; v.textContent=value; card.appendChild(v);
+  const h=document.createElement('div'); h.className='heading'; h.textContent=label; card.appendChild(h);
+  const v=document.createElement('div'); v.className='value'; 
+  v.textContent=Array.isArray(value)?value.join(', '):value;
+  card.appendChild(v);
 }
 
-async function loadFeed(file, feedName){
-  try{
-    const res = await fetch(file);
-    const data = await res.json();
+/* ==== LOAD FEED ==== */
+async function loadFeed(file, feedName, autoExpand=false){
+  const data = await parseFeedFile(file);
+  if(!data || data.length===0) return;
 
-    const panel = document.createElement('div'); panel.className='feed-panel';
-    const header = document.createElement('div'); header.className='feed-header';
-    header.textContent=`${feedName} (${data.length})`;
-    panel.appendChild(header);
+  const panel = document.createElement('div'); panel.className='feed-panel';
+  const header = document.createElement('div'); header.className='feed-header';
+  header.textContent = `${feedName} (${data.length})`;
+  panel.appendChild(header);
 
-    const entriesDiv = document.createElement('div'); entriesDiv.className='feed-entries';
-    header.onclick = () => { entriesDiv.style.display = entriesDiv.style.display==='block'?'none':'block'; };
+  const entriesDiv = document.createElement('div'); entriesDiv.className='feed-entries';
+  if(autoExpand) entriesDiv.style.display='block';
+  header.onclick = ()=>{ entriesDiv.style.display = entriesDiv.style.display==='block'?'none':'block'; };
 
-    data.forEach(entry=>{
-      const card=document.createElement('div'); card.className='entry-card';
-      const title=document.createElement('a'); title.className='entry-title';
-      title.href = entry.link || entry.mitre_url || '#';
-      title.target='_blank';
-      title.textContent = entry.title || entry.actor_name || 'No title';
-      card.appendChild(title);
+  data.forEach(entry=>{
+    const card=document.createElement('div'); card.className='entry-card';
+    const title=document.createElement('a'); title.className='entry-title';
+    title.href = entry.link || entry.mitre_url || '#';
+    title.target='_blank';
+    title.textContent = entry.title || entry.actor_name || 'No title';
+    card.appendChild(title);
 
-      const pub = entry.published || entry.last_updated;
-      if(pub) addField(card,'Published (UTC):', new Date(pub).toISOString().replace('T',' ').split('.')[0]+'Z');
+    const pub = entry.published || entry.last_updated;
+    if(pub) addField(card,'Published (UTC):', new Date(pub).toISOString().replace('T',' ').split('.')[0]+'Z');
 
-      let summary = entry.summary || entry.description;
-      if(summary) summary=summary.replace(/\.\.\.$/,'');
-      if(summary) addField(card,'Summary:',summary);
-      if(entry.aliases) addField(card,'Aliases:',entry.aliases);
-      if(entry.techniques) addField(card,'Techniques:',entry.techniques);
-      if(entry.attribution) addField(card,'Attribution:',entry.attribution);
-      if(entry.country) addField(card,'Country:',entry.country);
-      if(entry.website) addField(card,'Website:',entry.website);
+    let summary = entry.summary || entry.description;
+    if(summary) summary=summary.replace(/\.\.\.$/,'');
+    if(summary) addField(card,'Summary:',summary);
 
-      entriesDiv.appendChild(card);
-    });
+    addField(card,'Aliases:', entry.aliases);
+    addField(card,'Techniques:', entry.techniques);
+    addField(card,'Attribution:', entry.attribution);
+    addField(card,'Country:', entry.country);
+    addField(card,'Website:', entry.website);
 
-    panel.appendChild(entriesDiv);
-    container.appendChild(panel);
+    entriesDiv.appendChild(card);
+  });
 
-  } catch(e){
-    console.error(`Error loading ${file}`,e);
-  }
+  panel.appendChild(entriesDiv);
+  container.appendChild(panel);
 }
 
-/* ==== LOAD 24H ==== */
+/* ==== LOAD 24H FEEDS (latest file per feed) ==== */
 async function load24h(){
   container.innerHTML='';
-  const {feeds: allFeeds} = await fetchFeedsIndex();
-  for(const [name,file] of Object.entries(allFeeds)) await loadFeed(file,name);
+  const allFeeds = await fetchFeedsIndex();
+  for(const [name, files] of Object.entries(allFeeds)){
+    if(files.length>0) await loadFeed(files[0], name, true);
+  }
 }
-window.addEventListener('load',load24h);
+window.addEventListener('load', load24h);
 
 /* ==== SEARCH ==== */
 async function searchFeeds(){
@@ -154,30 +170,30 @@ async function searchFeeds(){
   if(!query) return;
 
   container.innerHTML=''; let anyMatch=false;
-  const {feeds: allFeeds} = await fetchFeedsIndex();
+  const allFeeds = await fetchFeedsIndex();
 
   async function searchFile(file, feedName){
-    try{
-      const res = await fetch(file);
-      const data = await res.json();
-      const matched = data.filter(entry=>{
-        const text=(entry.title||entry.actor_name||'')+' '+(entry.summary||entry.description||'')+' '+(entry.aliases||'')+' '+(entry.techniques||'')+' '+(entry.attribution||'');
-        return text.toLowerCase().includes(query);
-      });
-      if(matched.length>0){ anyMatch=true; await loadFeed(file,feedName); }
-    }catch(e){ console.error(e); }
+    const data = await parseFeedFile(file);
+    const matched = data.filter(entry=>{
+      const text=(entry.title||entry.actor_name||'')+' '+(entry.summary||entry.description||'')+' '+(entry.aliases||'')+' '+(entry.techniques||'')+' '+(entry.attribution||'');
+      return text.toLowerCase().includes(query);
+    });
+    if(matched.length>0){ anyMatch=true; await loadFeed(file, feedName, true); }
   }
 
-  for(const [name,file] of Object.entries(allFeeds)) await searchFile(file,name);
+  for(const [name, files] of Object.entries(allFeeds)){
+    for(const f of files) await searchFile(f, name);
+  }
 
-  document.getElementById('search-status').style.display=anyMatch?'none':'block';
+  searchStatus.style.display = anyMatch?'none':'block';
 }
 
-document.getElementById('search-submit').addEventListener('click',searchFeeds);
-searchBox.addEventListener('keydown', e => { if(e.key==='Enter') searchFeeds(); });
-document.getElementById('clear-search').addEventListener('click',()=>{ searchBox.value=''; load24h(); });
-document.getElementById('expand-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='block');});
-document.getElementById('collapse-all').addEventListener('click',()=>{document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='none');});
+/* ==== BUTTONS ==== */
+document.getElementById('search-submit').addEventListener('click', searchFeeds);
+searchBox.addEventListener('keydown', e=>{ if(e.key==='Enter') searchFeeds(); });
+document.getElementById('clear-search').addEventListener('click', ()=>{ searchBox.value=''; load24h(); searchStatus.style.display='none'; });
+document.getElementById('expand-all').addEventListener('click', ()=>{ document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='block'); });
+document.getElementById('collapse-all').addEventListener('click', ()=>{ document.querySelectorAll('.feed-entries').forEach(d=>d.style.display='none'); });
 </script>
 
 </body>
