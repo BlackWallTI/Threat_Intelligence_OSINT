@@ -39,9 +39,13 @@ mark.highlight {background-color:#0ff; color:#000;}
     <input type="text" id="search-box" placeholder="Search feeds...">
     <button id="search-submit">Search</button>
     <button id="clear-search">Clear</button>
+  </div>
+
+  <div id="button-bar" style="display:flex; gap:10px; margin-bottom:10px;">
     <button id="expand-all">Expand All</button>
     <button id="collapse-all">Collapse All</button>
   </div>
+
   <div id="feed-note">Titles can be clicked to view the source</div>
   <div id="search-status">No matches found</div>
   <div id="feeds-container"></div>
@@ -110,6 +114,7 @@ async function loadFeedData(data, feedName){
   panel.appendChild(entriesDiv); container.appendChild(panel);
 }
 
+// LOAD 24H
 async function load24h(){
   container.innerHTML='';
   for(const [name,file] of Object.entries(feeds)){
@@ -120,20 +125,33 @@ async function load24h(){
   }
 }
 
-// ARCHIVE
+// LOAD ARCHIVE WITH MERGE + DEDUPE
 async function loadArchive(){
   container.innerHTML='';
   try{
     const res = await fetch('archives_index.json');
     const archives = await res.json();
+
     for(const [feedKey, files] of Object.entries(archives)){
+      let merged = [];
+      const seen = new Set();
+
       for(const file of files){
         const resFile = await fetch(file);
         const text = await resFile.text();
         const data = text.split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));
-        await loadFeedData(data, feedKey.charAt(0).toUpperCase() + feedKey.slice(1) + ' Archive');
+        // merge & dedupe
+        for(const entry of data){
+          const key = (entry.title||entry.actor_name||'') + '|' + (entry.link||entry.mitre_url||'');
+          if(!seen.has(key)){
+            merged.push(entry);
+            seen.add(key);
+          }
+        }
       }
+      await loadFeedData(merged, feedKey.charAt(0).toUpperCase() + feedKey.slice(1) + ' Archive');
     }
+
   }catch(e){console.error('Failed loading archives', e);}
 }
 
